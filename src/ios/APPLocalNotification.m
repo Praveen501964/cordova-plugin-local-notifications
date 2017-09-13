@@ -25,6 +25,8 @@
 #import "APPLocalNotificationOptions.h"
 #import "UIApplication+APPLocalNotification.h"
 #import "UILocalNotification+APPLocalNotification.h"
+#import <UserNotifications/UserNotifications.h>
+
 
 @interface APPLocalNotification ()
 
@@ -484,7 +486,29 @@
 - (void) scheduleLocalNotification:(UILocalNotification*)notification
 {
     [self cancelForerunnerLocalNotification:notification];
-    [self.app scheduleLocalNotification:notification];
+    //Added by Praveen
+    //Broken at 10.3.3 iOS version and code updated for getting the local notifications
+    if (NSClassFromString(@"UNUserNotificationCenter")) {
+        NSTimeInterval interval = [notification.fireDate timeIntervalSinceDate:[NSDate date]];
+        if (interval <= 0) {
+            interval = 2;
+        }
+        UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+        UNMutableNotificationContent *content = [UNMutableNotificationContent new];
+        content.title = notification.alertTitle;
+        content.body = notification.alertBody;
+        content.sound = [UNNotificationSound soundNamed:notification.soundName];
+        content.userInfo = notification.userInfo;
+        UNTimeIntervalNotificationTrigger *trigger = [UNTimeIntervalNotificationTrigger triggerWithTimeInterval: interval repeats:NO];
+        UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:[NSString stringWithFormat: @"%ld", (long)[(NSNumber*)notification.userInfo[@"id"] integerValue]] content:content trigger:trigger];
+        [center addNotificationRequest:request withCompletionHandler:^(NSError * _Nullable error) {
+            if (error != nil) {
+                NSLog(@"Something went wrong: %@", error);
+            }
+        }];
+    } else {
+        [self.app scheduleLocalNotification:notification];
+    }
 }
 
 /**
